@@ -1,19 +1,16 @@
 import streamlit as st
 import hashlib
 from cryptography.fernet import Fernet
+import streamlit.components.v1 as components
 
-# Generate encryption key (should be stored securely in real apps)
+# -- Encryption setup --
 KEY = Fernet.generate_key()
 cipher = Fernet(KEY)
+stored_data = {}
 
-# In-memory store
-stored_data = {}  # Format: { "encrypted_text": {"passkey": hashed_passkey} }
-
-# Session state for tracking login attempts
 if "failed_attempts" not in st.session_state:
     st.session_state["failed_attempts"] = 0
 
-# Helper functions
 def hash_passkey(passkey):
     return hashlib.sha256(passkey.encode()).hexdigest()
 
@@ -29,70 +26,109 @@ def decrypt_data(encrypted_text, passkey):
         st.session_state["failed_attempts"] += 1
         return None
 
-# Page settings
-st.set_page_config(page_title="🔐 Sterling Secure Vault", page_icon="🔐", layout="wide")
-st.markdown("<h1 style='text-align: center;'>🔐 Sterling Secure Vault</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: gray;'>A sleek app to securely store and retrieve your sensitive data</p>", unsafe_allow_html=True)
+# -- Page config & styles --
+st.set_page_config(page_title="Sterling Secure Vault", page_icon="🔐", layout="wide")
 
-# Navigation menu
+st.markdown("""
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .main {
+            background-color: #ffffff;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .stTextInput>div>div>input, .stTextArea textarea {
+            background-color: #f3f3f3;
+            border-radius: 10px;
+        }
+        .stButton button {
+            background-color: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 0.5rem 1rem;
+            transition: all 0.3s ease;
+        }
+        .stButton button:hover {
+            background-color: #2563eb;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+# -- Lottie animation loader (Home) --
+def load_lottie():
+    lottie_url = "https://assets10.lottiefiles.com/packages/lf20_tljjah3d.json"
+    components.iframe("https://lottie.host/embed/f4579601-3907-414b-82d4-21b253ad4828/3eOjOgmu5L.json", height=250, scrolling=False)
+
+# -- Sidebar Menu --
 menu = ["🏠 Home", "📂 Store Data", "🔍 Retrieve Data", "🔑 Login"]
-choice = st.sidebar.radio("Navigate", menu)
+choice = st.sidebar.selectbox("🔘 Menu", menu)
 
-# Home Page
+# -- Home Page --
 if choice == "🏠 Home":
-    st.info("Welcome to **Sterling Secure Vault**! This app helps you encrypt and decrypt your sensitive information using passkey-based protection.")
-    st.markdown("### 🔧 Features:")
-    st.markdown("- 🔒 Encrypt and store sensitive information")
-    st.markdown("- 🧪 Decrypt only with the correct passkey")
-    st.markdown("- 🚫 Login lock after 3 failed attempts")
-    st.markdown("- 🔑 Master login to reset access")
+    st.markdown("<div class='main'>", unsafe_allow_html=True)
+    st.markdown("## 🔐 Welcome to Sterling Secure Vault")
+    load_lottie()
+    st.write("""
+        This app provides **passkey-protected encryption** to store your sensitive data securely.
+        \n🧰 Features include:
+        - End-to-end encryption using Fernet
+        - 3 login attempt restrictions
+        - Reset access with a master pass
+    """)
+    st.markdown("</div>", unsafe_allow_html=True)
 
-# Store Encrypted Data
+# -- Store Data --
 elif choice == "📂 Store Data":
-    st.subheader("📦 Store New Encrypted Data")
-    user_data = st.text_area("📝 Enter your secret data:", height=150)
-    passkey = st.text_input("🔑 Choose a secure passkey:", type="password")
-
-    if st.button("🚀 Encrypt & Store"):
+    st.markdown("<div class='main'>", unsafe_allow_html=True)
+    st.markdown("## 📦 Encrypt & Store Data")
+    user_data = st.text_area("🔏 Enter your secret data:")
+    passkey = st.text_input("🔑 Choose a passkey:", type="password")
+    if st.button("🚀 Encrypt Now"):
         if user_data and passkey:
             encrypted = encrypt_data(user_data)
             stored_data[encrypted] = {"passkey": hash_passkey(passkey)}
-            st.success("✅ Successfully encrypted and stored your data!")
-            st.code(encrypted, language="text")
+            st.success("✅ Data encrypted and stored!")
+            st.code(encrypted, language='text')
         else:
-            st.warning("⚠️ Please provide both data and passkey.")
+            st.warning("⚠️ Please fill in both fields.")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-# Retrieve Encrypted Data
+# -- Retrieve Data --
 elif choice == "🔍 Retrieve Data":
-    st.subheader("🔎 Decrypt Stored Data")
-
+    st.markdown("<div class='main'>", unsafe_allow_html=True)
+    st.markdown("## 🔍 Retrieve & Decrypt Data")
     if st.session_state["failed_attempts"] >= 3:
-        st.error("🚫 You have exceeded the maximum number of attempts.")
-        st.info("Please login from the sidebar to reset access.")
+        st.error("🚫 Too many failed attempts.")
+        st.info("🔑 Please login to reset.")
     else:
-        encrypted_input = st.text_area("🔐 Paste the encrypted text here:")
+        encrypted_input = st.text_area("🔐 Paste encrypted data:")
         passkey_input = st.text_input("🗝️ Enter your passkey:", type="password")
-
         if st.button("🔓 Decrypt"):
             if encrypted_input and passkey_input:
                 result = decrypt_data(encrypted_input, passkey_input)
                 if result:
-                    st.success("✅ Data decrypted successfully!")
+                    st.success("✅ Decryption successful!")
                     st.code(result, language='text')
                 else:
                     remaining = 3 - st.session_state["failed_attempts"]
-                    st.error(f"❌ Incorrect passkey. Attempts remaining: {remaining}")
+                    st.error(f"❌ Wrong passkey. {remaining} attempts left.")
             else:
-                st.warning("⚠️ Please enter both fields to proceed.")
+                st.warning("⚠️ Enter both fields.")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-# Login Page
+# -- Login Reset --
 elif choice == "🔑 Login":
-    st.subheader("🔐 Master Login")
-    master_pass = st.text_input("Enter the master password to reset access:", type="password")
-
+    st.markdown("<div class='main'>", unsafe_allow_html=True)
+    st.markdown("## 🔐 Master Login")
+    master_pass = st.text_input("Enter master password to reset:", type="password")
     if st.button("✅ Login"):
         if master_pass == "admin123":
             st.session_state["failed_attempts"] = 0
-            st.success("🔓 Access reset successful. You may now try decrypting again.")
+            st.success("🔓 Access reset. Try decryption again.")
         else:
             st.error("❌ Incorrect master password.")
+    st.markdown("</div>", unsafe_allow_html=True)
